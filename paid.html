@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Where Razorpay sends a customer after paying (callback_url in the Apps
+  Script relay). Its only job is to get them back into the app.
+
+  Deliberately self-contained: no Meta Pixel, no consent banner, no web font,
+  no request to anyone. Razorpay puts the payment id, link id and a signature
+  in this page's query string, and the Pixel reports page URLs to Meta -- so
+  nothing on this page may load a third-party script. The query string is also
+  wiped from the address bar as soon as it has been read.
+
+  Nothing here is trusted. The status in the URL only picks the wording; the
+  app asks Razorpay, through the relay, before it shows "Payment received".
+-->
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>Back to SEHATist</title>
+<style>
+  :root{--ink:#211C16;--muted:#5B4E35;--card:#EFE6D2;--border:#CFBD98;
+    --primary:#3E3B74;--canvas:#D8C8A2;--canvas2:#CBBCDA;--success:#6E8B5A}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:linear-gradient(180deg,var(--canvas),var(--canvas2));
+    color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  main{width:100%;max-width:380px;background:var(--card);border:1.5px solid var(--border);
+    border-radius:22px;padding:28px 22px;text-align:center}
+  .mark{width:64px;height:64px;border-radius:50%;margin:0 auto 14px;display:flex;
+    align-items:center;justify-content:center;background:var(--success);color:#fff;font-size:32px}
+  .mark.wait{background:var(--muted)}
+  h1{font-size:22px;line-height:1.25;margin:0 0 8px}
+  p{margin:0 0 10px;color:var(--muted)}
+  .ref{font:600 13px/1.4 ui-monospace,Menlo,monospace;color:var(--muted)}
+  a.cta{display:block;margin:18px 0 6px;padding:15px 18px;border-radius:14px;
+    background:var(--primary);color:#fff;text-decoration:none;font-weight:700;
+    box-shadow:0 4px 0 #2A2850}
+  a.cta:active{transform:translateY(3px);box-shadow:0 1px 0 #2A2850}
+  small{display:block;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <div class="mark" id="mark">&#10003;</div>
+  <h1 id="title">Payment complete</h1>
+  <p id="body">Taking you back to SEHATist&hellip;</p>
+  <p class="ref" id="ref"></p>
+  <a class="cta" id="open" href="sehatist://ready">Back to SEHATist</a>
+  <small id="hint">If the app doesn't open, tap the button above.</small>
+</main>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var status = q.get('razorpay_payment_link_status');
+  var ref = q.get('razorpay_payment_link_reference_id') || '';
+  if (!/^[A-Za-z0-9-]{1,40}$/.test(ref)) ref = '';
+
+  // Payment ids and the signature are not this page's business, and should
+  // not sit in the address bar, history, or a screenshot someone shares.
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+
+  var path = 'ready?from=payment' + (ref ? '&ref=' + encodeURIComponent(ref) : '');
+  var store = 'https://play.google.com/store/apps/details?id=com.sehatist.app';
+  var url = /Android/i.test(navigator.userAgent)
+    ? 'intent://' + path + '#Intent;scheme=sehatist;package=com.sehatist.app;S.browser_fallback_url=' +
+      encodeURIComponent(store) + ';end'
+    : 'sehatist://' + path;
+
+  document.getElementById('open').href = url;
+  if (ref) document.getElementById('ref').textContent = 'Order ' + ref;
+
+  if (status !== 'paid') {
+    var mark = document.getElementById('mark');
+    mark.className = 'mark wait';
+    mark.innerHTML = '&#8635;';
+    document.getElementById('title').textContent = 'Back to the app';
+    document.getElementById('body').textContent =
+      'If your payment did not go through, nothing was charged. You can finish it from the Plans tab.';
+    return;
+  }
+
+  document.getElementById('body').textContent =
+    'Your Sehat Expert will message you on WhatsApp within 24–48 hrs. Opening the app…';
+
+  // Some browsers allow this straight after the payment redirect, some only
+  // after a tap -- hence the button, which always works.
+  setTimeout(function () { location.href = url; }, 600);
+})();
+</script>
+</body>
+</html>
